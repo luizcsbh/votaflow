@@ -34,6 +34,11 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+        // PHP no Windows costuma vir sem bundle de CAs (cURL error 60). Usa SSL_CA_BUNDLE, ou o
+        // storage/certs/cacert.pem do projeto, ou o padrão do sistema. Nunca desative a verificação.
+        'guzzle' => [
+            'verify' => env('SSL_CA_BUNDLE') ?: (is_file(storage_path('certs/cacert.pem')) ? storage_path('certs/cacert.pem') : true),
+        ],
     ],
 
 ];
