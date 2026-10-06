@@ -1,0 +1,131 @@
+# Pipeline (PHP 7.4 / Laravel 8): lint → test → security → build → deploy
+# Segredos (chaves, tokens, senhas) ficam SOMENTE em Settings > CI/CD > Variables (masked/protected).
+# Variáveis esperadas no deploy: DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH, SSH_PRIVATE_KEY (tipo File, protected).
+
+stages: [lint, test, security, build, deploy]
+
+variables:
+  COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.composer-cache"
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+default:
+  image: php:7.4-cli
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: [.composer-cache/, .npm/, vendor/]
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git unzip libzip-dev libsqlite3-dev >/dev/null
+    - docker-php-ext-install -j"$(nproc)" pcntl zip pdo_sqlite pdo_mysql >/dev/null
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - composer install --no-interaction --prefer-dist --no-progress
+
+# Pint e Larastan atuais exigem PHP 8.1+; em PHP 7.4 a checagem estática é o `php -l` (sintaxe).
+lint:
+  stage: lint
+  script:
+    - find app bootstrap config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+
+tests:
+  stage: test
+  variables:
+    APP_ENV: testing
+  script:
+    - cp .env.example .env && php artisan key:generate
+    - php artisan test --testsuite=Unit,Feature --colors=never
+
+concurrency:
+  stage: test
+  variables:
+    VOTAFLOW_CONC_USUARIOS: "500"
+  script:
+    - cp .env.example .env && php artisan key:generate
+    - php artisan test --testsuite=Concurrency --colors=never
+
+mysql-integration:
+  stage: test
+  services:
+    - name: mysql:8.4
+      alias: mysql
+  variables:
+    MYSQL_DATABASE: votaflow_test
+    MYSQL_ROOT_PASSWORD: ci-only-not-a-secret
+    DB_CONNECTION: mysql
+    DB_HOST: mysql
+    DB_DATABASE: votaflow_test
+    DB_USERNAME: root
+    DB_PASSWORD: ci-only-not-a-secret
+    VOTAFLOW_CONC_DB: env
+    VOTAFLOW_CONC_USUARIOS: "200"
+  script:
+    - cp .env.example .env && php artisan key:generate
+    - php artisan migrate --force
+    - php artisan test --testsuite=Concurrency --colors=never
+  allow_failure: false
+
+composer-audit:
+  stage: security
+  script: [composer audit --no-interaction]
+
+secret-detection:
+  stage: security
+  image: alpine:3.20
+  before_script: [apk add --no-cache git]
+  script:
+    - |
+      if git grep -nEI '(GOOGLE_CLIENT_SECRET|APP_KEY|DB_PASSWORD)=[^[:space:]"$]+' -- . ':!.env.example' ':!.gitlab-ci.yml' ':!docker-compose.yml' ':!docs/'; then
+        echo "Possível segredo no repositório"; exit 1
+      fi
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+build-assets:
+  stage: build
+  image: node:22
+  before_script: []
+  script:
+    - npm ci || npm install
+    - npm run build
+  artifacts:
+    paths: [public/build]
+    expire_in: 1 week
+
+build-release:
+  stage: build
+  needs: [build-assets]
+  script:
+    - composer install --no-dev --optimize-autoloader --no-interaction
+    - tar --exclude=.git --exclude=node_modules --exclude=tests -czf release.tar.gz .
+  artifacts:
+    paths: [release.tar.gz]
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+deploy-production:
+  stage: deploy
+  image: alpine:3.20
+  needs: [build-release]
+  before_script:
+    - apk add --no-cache openssh-client rsync
+    - chmod 600 "$SSH_PRIVATE_KEY"
+  script:
+    - scp -i "$SSH_PRIVATE_KEY" -o StrictHostKeyChecking=accept-new release.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/votaflow-release.tar.gz"
+    - |
+      ssh -i "$SSH_PRIVATE_KEY" "$DEPLOY_USER@$DEPLOY_HOST" "
+        set -e
+        cd '$DEPLOY_PATH'
+        php artisan down --retry=10 || true
+        tar -xzf /tmp/votaflow-release.tar.gz -C '$DEPLOY_PATH'
+        php artisan migrate --force
+        php artisan optimize
+        php artisan queue:restart
+        php artisan up
+      "
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual

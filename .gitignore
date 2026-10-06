@@ -1,0 +1,42 @@
+# Segredos e configuração local
+.env
+.env.*
+!.env.example
+/auth.json
+
+# Dependências
+/vendor
+/node_modules
+.composer-cache/
+.npm/
+
+# Build / runtime
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+release.tar.gz
+
+# Banco SQLite local (dev)
+/database/*.sqlite
+/database/*.sqlite-journal
+/database/*.sqlite-wal
+/database/*.sqlite-shm
+
+# Testes e logs
+*.log
+.phpunit.result.cache
+/.phpunit.cache
+/coverage
+
+# Editores / SO
+/.idea
+/.vscode
+/.fleet
+/.nova
+/.zed
+.phpactor.json
+.DS_Store
+Thumbs.db
+Homestead.json
+Homestead.yaml
