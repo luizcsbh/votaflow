@@ -40,3 +40,5 @@ release.tar.gz
 Thumbs.db
 Homestead.json
 Homestead.yaml
+
+client_secret_*.json
