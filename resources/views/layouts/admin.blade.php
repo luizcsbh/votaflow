@@ -34,8 +34,13 @@
             @endcan
         </nav>
         <div class="mt-8 border-t border-slate-200 pt-4 text-sm">
-            <p class="font-medium">{{ auth()->user()->name }}</p>
-            <p class="text-slate-500">{{ auth()->user()->role->rotulo() }}</p>
+            <a href="{{ route('perfil') }}" class="flex items-center gap-3 rounded-lg p-1 hover:bg-slate-100 {{ request()->routeIs('perfil') ? 'bg-brand-50' : '' }}" @if (request()->routeIs('perfil')) aria-current="page" @endif>
+                <x-avatar :user="auth()->user()" />
+                <span class="min-w-0">
+                    <span class="block truncate font-medium">{{ auth()->user()->name }}</span>
+                    <span class="block text-slate-500">{{ auth()->user()->role->rotulo() }}</span>
+                </span>
+            </a>
             <form method="POST" action="{{ route('logout') }}" class="mt-2">@csrf<button class="text-brand-700 underline">Sair</button></form>
         </div>
     </aside>

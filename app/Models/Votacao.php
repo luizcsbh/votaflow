@@ -85,9 +85,49 @@ class Votacao extends Model
         return $this->hasMany(Participacao::class);
     }
 
+    /** Link que vai no QR Code. Usa VOTAFLOW_PUBLIC_URL (se definida) para não depender de como o admin abriu o painel. */
     public function urlPublica(): string
     {
-        return route('votacao.mostrar', $this->public_id);
+        $base = trim((string) config('votaflow.public_url'));
+        if ($base === '') {
+            return route('votacao.mostrar', $this->public_id);
+        }
+
+        return rtrim($base, '/').route('votacao.mostrar', $this->public_id, false);
+    }
+
+    /**
+     * O celular consegue abrir este link? Falso para localhost, 127.x, ::1, IPs de rede privada
+     * (192.168/10/172.16-31 só funcionam na mesma Wi-Fi e o login Google os recusa) e domínios .local/.test.
+     */
+    public function linkAcessivelPorCelular(): bool
+    {
+        $host = strtolower((string) parse_url($this->urlPublica(), PHP_URL_HOST));
+        if ($host === '' || $host === 'localhost' || $host === '::1' || $host === '[::1]') {
+            return false;
+        }
+        if (preg_match('/\.(local|test|localhost|internal|lan)$/', $host)) {
+            return false;
+        }
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            if (config('votaflow.dev_login')) {
+                return true; // dev: celular na mesma Wi-Fi alcança 192.168.x.x
+            }
+
+            return (bool) filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        }
+
+        return true;
+    }
+
+    /** Login Google exige HTTPS fora de localhost: sem HTTPS o celular abre a página, mas não consegue entrar. */
+    public function linkUsaHttps(): bool
+    {
+        if (config('votaflow.dev_login')) {
+            return true; // dev: o login é o de teste, sem Google
+        }
+
+        return stripos($this->urlPublica(), 'https://') === 0;
     }
 
     /** Backend é a fonte da verdade: status ABERTA e dentro da janela de tempo. */

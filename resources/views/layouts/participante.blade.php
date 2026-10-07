@@ -8,10 +8,16 @@
             {{ config('votaflow.nome') }}
         </a>
         @auth
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="rounded-lg px-3 py-2 text-sm text-slate-600 underline-offset-2 hover:underline">Sair</button>
-            </form>
+            <div class="flex items-center gap-1">
+                <a href="{{ route('perfil') }}" class="flex items-center gap-2 rounded-lg px-2 py-1 text-sm text-slate-700 hover:bg-slate-100" title="Meu perfil">
+                    <x-avatar :user="auth()->user()" tamanho="size-8 text-xs" />
+                    <span class="sr-only sm:not-sr-only">{{ auth()->user()->primeiroNome() }}</span>
+                </a>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="rounded-lg px-3 py-2 text-sm text-slate-600 underline-offset-2 hover:underline">Sair</button>
+                </form>
+            </div>
         @endauth
     </header>
 

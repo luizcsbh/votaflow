@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\Auth;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\Participante\VotacaoPublicaController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +20,11 @@ Route::middleware('throttle:login')->group(function () {
     Route::get('/auth/google/callback', [GoogleController::class, 'callback'])->name('auth.google.callback');
 });
 Route::post('/logout', [GoogleController::class, 'logout'])->middleware('auth')->name('logout');
+Route::get('/perfil', PerfilController::class)->middleware('auth')->name('perfil');
+
+// ── Login de desenvolvimento: o controller responde 404 a menos que APP_ENV=local + VOTAFLOW_DEV_LOGIN=true ─
+Route::get('/dev/login', [Auth\DevLoginController::class, 'index'])->name('dev.login');
+Route::post('/dev/login', [Auth\DevLoginController::class, 'entrar'])->name('dev.login.entrar');
 
 // ── Área do participante (URL pública do QR Code: /v/ABC123) ─────────────────
 Route::prefix('v/{votacao}')->name('votacao.')->group(function () {

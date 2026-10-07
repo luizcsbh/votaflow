@@ -62,6 +62,7 @@
 
     <aside class="card h-fit text-center" x-data="{ copiado: false }">
         <h2 class="text-lg font-semibold">QR Code</h2>
+        @include('admin.votacoes._aviso-celular')
         <div class="mx-auto mt-3 w-48 [&_svg]:h-auto [&_svg]:w-full" role="img" aria-label="QR Code da votação">{!! $qr !!}</div>
         <p class="mt-2 break-all text-xs text-slate-500">{{ $votacao->urlPublica() }}</p>
         <div class="mt-4 grid gap-2">

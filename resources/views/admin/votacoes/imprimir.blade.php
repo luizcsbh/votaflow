@@ -3,6 +3,7 @@
 
 @section('corpo')
 <main id="conteudo" class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center p-8 text-center" x-data x-init="setTimeout(() => window.print(), 400)">
+    <div class="no-print w-full">@include('admin.votacoes._aviso-celular')</div>
     <p class="text-lg font-semibold uppercase tracking-widest text-brand-700">Participe da votação</p>
     <h1 class="mt-2 text-4xl font-extrabold">{{ $votacao->titulo }}</h1>
     <div class="my-8 [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-md" role="img" aria-label="QR Code da votação">{!! $qr !!}</div>
